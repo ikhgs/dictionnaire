@@ -1,39 +1,38 @@
+from flask import Flask, request, jsonify
 import requests
-from bs4 import BeautifulSoup
-from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
-@app.route('/api/definition', methods=['GET'])
-def get_definition():
-    # Récupérer le mot à chercher depuis les paramètres de requête
-    mot = request.args.get('mot', '')
-    
-    # URL à interroger (dépend du mot recherché)
-    url = f'https://www.le-dictionnaire.com/definition/{mot}'
-    
-    # Envoyer une requête GET pour obtenir le HTML de la page
-    response = requests.get(url)
-    
-    # Vérifier si la requête a réussi
-    if response.status_code != 200:
-        return jsonify({'error': 'Failed to retrieve data'}), 500
-    
-    # Analyser le contenu de la page avec BeautifulSoup
-    soup = BeautifulSoup(response.text, 'html.parser')
-    
-    # Extraire les sections de définition à partir de la page
-    # Exemple de recherche par classe ou balises spécifiques
-    definition_section = soup.find('div', {'class': 'definition'})  # Ajuster en fonction du site
-    definition_text = definition_section.get_text(strip=True) if definition_section else 'Définition non trouvée'
+@app.route('/translate', methods=['GET'])
+def translate():
+    # Récupérer le texte à traduire depuis les paramètres de requête
+    text_to_translate = request.args.get('q', default='', type=str)
+    source_lang = request.args.get('sl', default='auto', type=str)  # Langue source (par défaut 'auto' pour autodétection)
+    target_lang = request.args.get('tl', default='en', type=str)    # Langue cible (par défaut anglais)
 
-    # Vous pouvez ajouter d'autres informations comme des exemples ou synonymes
-    result = {
-        'mot': mot,
-        'definition': definition_text
+    # Si aucun texte n'est fourni, retourner une erreur
+    if not text_to_translate:
+        return jsonify({"error": "Veuillez fournir un texte à traduire via le paramètre 'q'."}), 400
+
+    # Paramètres pour la requête de traduction
+    params = {
+        'client': 'webapp',
+        'sl': source_lang,  # Langue source (par défaut autodétection)
+        'tl': target_lang,  # Langue cible (par défaut anglais)
+        'hl': target_lang,  # Langue de l'interface (correspond à la langue cible)
+        'dt': 't',          # Type de données (traduction)
+        'q': text_to_translate  # Texte à traduire
     }
-    
-    return jsonify(result)
+
+    # Requête à l'API de Google Translate
+    try:
+        res = requests.get('https://translate.google.com/translate_a/single', params=params).json()
+        translated_text = res[0][0][0]
+    except Exception as e:
+        return jsonify({"error": "Erreur lors de la traduction.", "details": str(e)}), 500
+
+    # Retourner la traduction en JSON
+    return jsonify({"translated_text": translated_text, "source_lang": source_lang, "target_lang": target_lang})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
