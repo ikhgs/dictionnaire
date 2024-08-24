@@ -1,37 +1,36 @@
-from flask import Flask, jsonify, request
 import requests
 from bs4 import BeautifulSoup
+from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
 @app.route('/api/definition', methods=['GET'])
 def get_definition():
-    # Obtenir le mot à partir des paramètres de requête
+    # Récupérer le mot à chercher depuis les paramètres de requête
     mot = request.args.get('mot', '')
     
-    # Construire l'URL de l'API
-    url = f'https://www.le-dictionnaire.com/definition.php?mot={mot}'
+    # URL à interroger (dépend du mot recherché)
+    url = f'https://www.le-dictionnaire.com/definition/{mot}'
     
-    # Envoyer une requête GET à l'URL
+    # Envoyer une requête GET pour obtenir le HTML de la page
     response = requests.get(url)
     
     # Vérifier si la requête a réussi
     if response.status_code != 200:
         return jsonify({'error': 'Failed to retrieve data'}), 500
     
-    # Parser le HTML de la réponse
+    # Analyser le contenu de la page avec BeautifulSoup
     soup = BeautifulSoup(response.text, 'html.parser')
     
-    # Extraire les données spécifiques (exemple basé sur les données HTML)
-    definition = soup.find('div', class_='definition').get_text(strip=True)
-    examples = soup.find('div', class_='examples').get_text(strip=True) if soup.find('div', class_='examples') else ''
-    synonyms = soup.find('div', class_='synonyms').get_text(strip=True) if soup.find('div', class_='synonyms') else ''
-    
-    # Construire le résultat JSON
+    # Extraire les sections de définition à partir de la page
+    # Exemple de recherche par classe ou balises spécifiques
+    definition_section = soup.find('div', {'class': 'definition'})  # Ajuster en fonction du site
+    definition_text = definition_section.get_text(strip=True) if definition_section else 'Définition non trouvée'
+
+    # Vous pouvez ajouter d'autres informations comme des exemples ou synonymes
     result = {
-        'definition': definition,
-        'examples': examples,
-        'synonyms': synonyms
+        'mot': mot,
+        'definition': definition_text
     }
     
     return jsonify(result)
